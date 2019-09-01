@@ -1,6 +1,9 @@
 package pusher
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/tidwall/gjson"
+)
 
 // EventStub contains just the "type" of event.
 // Knowing the type, we can then unmarshal again, into appropriate type.
@@ -10,9 +13,9 @@ type EventStub struct {
 
 // Event is a pusher event
 type Event struct {
-	Event   string `json:"event"`
-	Data    string `json:"data"`
-	Channel string `json:"channel"`
+	Event   string        `json:"event"`
+	Data    gjson.Result  `json:"data"`
+	Channel string        `json:"channel"`
 }
 
 // EventError contains a structured error in its Data field.

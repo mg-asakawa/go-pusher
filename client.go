@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"golang.org/x/net/websocket"
+	"github.com/tidwall/gjson"
 )
 
 // ErrEvent error on event
@@ -47,7 +48,9 @@ func (c *Client) heartbeat() {
 func (c *Client) listen() {
 	for !c.Stopped() {
 		var event Event
-		err := websocket.JSON.Receive(c.ws, &event)
+		var message string
+		//err := websocket.JSON.Receive(c.ws, &event)
+		err := websocket.Message.Receive(c.ws, &message)
 		if err != nil {
 			if c.Stopped() {
 				// Normal termination (ws Receive returns error when ws is
@@ -59,9 +62,11 @@ func (c *Client) listen() {
 			ch, ok := c.binders[ErrEvent]
 			c.m.Unlock()
 			if ok {
+				wk := fmt.Sprintf(`{"data": "%s"}`, err.Error())
 				ch <- &Event{
 					Event: ErrEvent,
-					Data:  err.Error()}
+					Data: gjson.Parse(wk),
+				}
 			}
 			// no matter what error happened, will log again and again
 			// so return
@@ -72,12 +77,17 @@ func (c *Client) listen() {
 			c.sendError(fmt.Errorf("Listen error : %s", err))
 			return
 		}
+		js := gjson.Parse(message)
+		event.Event = js.Get("event").String()
+		event.Channel = js.Get("channel").String()
+		event.Data = js.Get("data")
+
 		switch event.Event {
 		case "pusher:ping":
 			websocket.Message.Send(c.ws, `{"event":"pusher:pong","data":"{}"}`)
 		case "pusher:pong":
 		case "pusher:error":
-			c.sendError(fmt.Errorf("Event error received : %s", event.Data))
+			c.sendError(fmt.Errorf("Event error received : %s", event.Data.String()))
 		default:
 			c.m.Lock()
 			ch, ok := c.binders[event.Event]
